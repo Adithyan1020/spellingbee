@@ -2,6 +2,7 @@ from gtts import gTTS
 import os
 import pygame
 import requests
+import datetime
 
 # Function to get a random word
 def fetch_random_word():
@@ -31,39 +32,46 @@ def get_word_definition(random_word):
     else:
         return "Definition not found."
 
+print("This is a spelling bee competition..")
+input('Press Enter to start...')
+
 # Main function to handle the game loop
 def play_game():
+    # Initialize pygame mixer
+    pygame.mixer.init()
+
+    # Ensure the output directory exists
+    output_dir = 'D:/spelling_bee'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
     while True:
         # Fetch a random word
         random_word = fetch_random_word()
         
         if random_word:
-            print(f"Random word: {random_word}")
+            # Ask for help with definition or answer
+            help_input = input("To ask for definition of the word, type 'd' or press 'a' to give answer: ")
 
-            # Get the definition of the random word
-            definition = get_word_definition(random_word)
-
-            # Check if a valid definition was returned
-            if definition == "Definition not found.":
-                print("No definition found. Selecting another word.")
-                continue
-
-            print("The definition of the word is: " + definition)
+            # Get the definition of the random word if requested
+            definition = ""
+            if help_input.lower() == 'd':
+                definition = get_word_definition(random_word)
+                print("The definition of the word is: " + definition)
 
             # Prepare text for conversion to speech
-            text_to_convert = f"{random_word}. {definition}"
+            text_to_convert = f"{random_word}. {definition}" if help_input.lower() == 'd' else f"{random_word}"
 
             try:
                 # Convert text to speech
                 tts = gTTS(text=text_to_convert, lang='en')
                 
-                output_file_path = r'D:/spelling_bee/audio.mp3'  # Ensure this path is correct
+                # Generate a unique filename using timestamp
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                output_file_path = os.path.join(output_dir, f'audio_{timestamp}.mp3')  # Unique filename
                 
                 # Save the audio to a temporary MP3 file
                 tts.save(output_file_path)
-
-                # Initialize the pygame mixer
-                pygame.mixer.init()
 
                 # Load and play the audio file
                 pygame.mixer.music.load(output_file_path)
@@ -73,13 +81,33 @@ def play_game():
                 while pygame.mixer.music.get_busy():
                     continue
 
-                print("Press Enter to go to the next word.")
-                input()  # Wait for the user to press Enter
+                # Ask for user's answer after playing audio if they did not request a definition
+                if help_input.lower() == 'a':
+                    answer = input("Type your answer: ")
+                    if answer.lower() == random_word.lower():
+                        print("Your answer is correct!")
+                    elif answer.lower()=='d':
+                        definition = get_word_definition(random_word)
+                        print("The definition of the word is: " + definition)
+
+                    else:
+                        print(f"You got it incorrect. The correct word was '{random_word}'.")
+
+                print("Press Enter to go to the next word or type 'exit' to quit.")
+                
+                user_input = input()  # Wait for user input
+                
+                if user_input.lower() == 'exit':
+                    print("Exiting the game. Thank you for playing!")
+                    break  # Exit loop if user types 'exit'
 
             except PermissionError as e:
-                print(f"PermissionError: {e}")
+                print(f"PermissionError: {e}. Please ensure that the audio file is not open elsewhere.")
+            except pygame.error as e:
+                print(f"Pygame error: {e}")
             except Exception as e:
-                print(f"An error occurred: {e}")
+                print(f"An unexpected error occurred: {e}")
+        
         else:
             print("Could not retrieve a random word.")
             break
